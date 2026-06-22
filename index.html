@@ -986,14 +986,18 @@ Batal
 </div>
 <div id="profile-dropdown-list" style="max-height:250px;overflow-y:auto;"></div>
 <div class="profile-dropdown-footer">
-<div class="profile-dropdown-item" onclick="toggleProfileDropdown(); toggleSidebar(false); openAddAccountModal();">
-  <i class="fa-solid fa-user-plus" style="color:var(--cyan);"></i>
-  <span>Tambah Akun Baru</span>
-</div>
-<div class="profile-dropdown-item danger" onclick="logoutProfile(); toggleProfileDropdown(); toggleSidebar(false);">
-<i class="fa-solid fa-right-from-bracket"></i>
-<span>Keluar / Ganti Akun</span>
-</div>
+    <div class="profile-dropdown-item" onclick="toggleProfileDropdown(); toggleSidebar(false); openMasterDbSettings();">
+        <i class="fa-solid fa-cloud" style="color:var(--cyan);"></i>
+        <span>Sync Profil ke Cloud</span>
+    </div>
+    <div class="profile-dropdown-item" onclick="showAddProfileForm(); toggleProfileDropdown(); toggleSidebar(false);">
+        <i class="fa-solid fa-user-plus" style="color:var(--cyan);"></i>
+        <span>Tambah Akun Baru</span>
+    </div>
+    <div class="profile-dropdown-item danger" onclick="logoutProfile(); toggleProfileDropdown(); toggleSidebar(false);">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span>Keluar / Ganti Akun</span>
+    </div>
 </div>
 </div>
 </div>
@@ -1912,32 +1916,116 @@ dropdown.style.display = 'none';
 }
 
 function renderProfileDropdown() {
-const list = document.getElementById('profile-dropdown-list');
-if (!list || profiles.length === 0) return;
-let html = '';
-profiles.forEach(p => {
-const isActive = p.id === activeProfileId;
-const urlShort = p.apiUrl ? (p.apiUrl.replace('https://', '').substring(0, 25) + '...') : 'Belum ada URL';
-html += `
-<div class="profile-dropdown-item ${isActive ? 'active' : ''}" onclick="switchToProfile('${p.id}')">
-<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, var(--cyan), var(--blue));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0;">
-${p.name.charAt(0).toUpperCase()}
-</div>
-<div style="flex:1;min-width:0;">
-<div style="font-weight:600;color:${isActive ? 'var(--cyan)' : 'var(--text-main)'};font-size:14px;">
-${p.name} ${isActive ? '<i class="fa-solid fa-check-circle" style="margin-left:6px;color:var(--cyan);"></i>' : ''}
-</div>
-<div style="font-size:11px;color:var(--slate-500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-${urlShort}
-</div>
-</div>
-${isActive ? '<i class="fa-solid fa-circle-check" style="color:var(--cyan);font-size:16px;"></i>' : ''}
-</div>
-`;
-});
-list.innerHTML = html;
+    const list = document.getElementById('profile-dropdown-list');
+    if (!list || profiles.length === 0) return;
+    let html = '';
+    profiles.forEach(p => {
+        const isActive = p.id === activeProfileId;
+        const urlShort = p.apiUrl ? (p.apiUrl.replace('https://', '').substring(0, 25) + '...') : 'Belum ada URL';
+        html += `
+        <div class="profile-dropdown-item ${isActive ? 'active' : ''}" style="position:relative;">
+            <div style="flex:1;min-width:0;cursor:pointer;" onclick="switchToProfile('${p.id}')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, var(--cyan), var(--blue));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0;">
+                        ${p.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;color:${isActive ? 'var(--cyan)' : 'var(--text-main)'};font-size:14px;">
+                            ${p.name} ${isActive ? '<i class="fa-solid fa-check-circle" style="margin-left:6px;color:var(--cyan);"></i>' : ''}
+                        </div>
+                        <div style="font-size:11px;color:var(--slate-500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            ${urlShort}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex;gap:4px;position:absolute;right:8px;top:50%;transform:translateY(-50%);">
+                <button onclick="event.stopPropagation(); editProfile('${p.id}')" 
+                        style="background:rgba(139, 92, 246, 0.2);border:none;border-radius:6px;padding:4px 8px;color:var(--cyan);cursor:pointer;font-size:12px;"
+                        title="Edit Profil">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                ${p.id !== activeProfileId ? `
+                <button onclick="event.stopPropagation(); deleteProfile('${p.id}')" 
+                        style="background:rgba(244, 63, 94, 0.2);border:none;border-radius:6px;padding:4px 8px;color:#fb7185;cursor:pointer;font-size:12px;"
+                        title="Hapus Profil">
+                    <i class="fa-solid fa-trash"></i>
+                </button>` : ''}
+            </div>
+        </div>
+        `;
+    });
+    list.innerHTML = html;
 }
 
+// Edit Profile
+window.editProfile = function(profileId) {
+    const profile = profiles.find(p => p.id === profileId);
+    if (!profile) return;
+    
+    const newName = prompt('✏️ Edit Nama Profil:', profile.name);
+    if (!newName || newName.trim() === '') {
+        showToast('⚠️ Nama profil tidak boleh kosong!', 'fa-circle-exclamation');
+        return;
+    }
+    
+    const newUrl = prompt('✏️ Edit URL AppScript:', profile.apiUrl);
+    if (!newUrl || !newUrl.includes('/exec')) {
+        showToast('⚠️ URL AppScript tidak valid!', 'fa-circle-exclamation');
+        return;
+    }
+    
+    const profileIndex = profiles.findIndex(p => p.id === profileId);
+    if (profileIndex !== -1) {
+        profiles[profileIndex].name = newName.trim();
+        profiles[profileIndex].apiUrl = newUrl.trim();
+        localStorage.setItem('vault_profiles', JSON.stringify(profiles));
+        
+        // Update jika profil yang sedang aktif
+        if (profileId === activeProfileId) {
+            localStorage.setItem('vault_profile_name', newName.trim());
+            localStorage.setItem('vault_api_url', newUrl.trim());
+            loadProfileName();
+        }
+        
+        renderProfileDropdown();
+        showToast('✅ Profil berhasil diubah!', 'fa-check-circle');
+        
+        // Sync ke cloud jika Master DB diatur
+        if (getMasterDbUrl()) {
+            syncProfilesToCloud();
+        }
+    }
+};
+
+// Delete Profile
+window.deleteProfile = function(profileId) {
+    const profile = profiles.find(p => p.id === profileId);
+    if (!profile) return;
+    
+    if (!confirm(`🗑️ Hapus profil "${profile.name}"?\n\nPERINGATAN: Semua data lokal profil ini akan dihapus!`)) {
+        return;
+    }
+    
+    profiles = profiles.filter(p => p.id !== profileId);
+    localStorage.setItem('vault_profiles', JSON.stringify(profiles));
+    
+    // Jika profil yang dihapus adalah profil aktif, logout
+    if (profileId === activeProfileId) {
+        activeProfileId = null;
+        localStorage.removeItem('vault_active_profile');
+        showProfileLoginScreen();
+    } else {
+        renderProfileDropdown();
+    }
+    
+    showToast('🗑️ Profil berhasil dihapus!', 'fa-trash');
+    
+    // Sync ke cloud jika Master DB diatur
+    if (getMasterDbUrl()) {
+        syncProfilesToCloud();
+    }
+};
 function switchToProfile(profileId) {
 if (profileId === activeProfileId) {
 toggleProfileDropdown();
@@ -3799,6 +3887,9 @@ addOutsideClose('vaultManagerModal', function() { if (typeof closeVaultManager =
 addOutsideClose('addAccountModal', function() { 
   if (typeof closeAddAccountModal === 'function') closeAddAccountModal(); 
 });
+addOutsideClose('masterDbModal', function() {
+  if (typeof closeMasterDbModal === 'function') closeMasterDbModal();
+});
 addOutsideClose('moreMenuOverlay', function() {
 const moreMenu = document.getElementById('moreMenu');
 if (moreMenu) moreMenu.style.display = 'none';
@@ -3824,8 +3915,9 @@ const modals = [
 ['quickActionsModal', 'closeQuickActionsCustomizer'],
 ['dropdownLayerModal', 'tutupCustomDropdownLayer'],
 ['contextMenuOverlay', 'closeContextMenu'],
-['vaultManagerModal', 'closeVaultManager']
+['vaultManagerModal', 'closeVaultManager'],
 ['addAccountModal', 'closeAddAccountModal'],
+['masterDbModal', 'closeMasterDbModal']
 ];
 for (const [id, fn] of modals) {
 const el = document.getElementById(id);
