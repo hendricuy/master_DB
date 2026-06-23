@@ -1757,6 +1757,180 @@ window.manualSyncProfiles = async function() {
   }
 };
 
+// === 🆕 CEK FIRST-TIME SETUP (TAMBAHKAN INI) ===
+function checkFirstTimeSetup() {
+  const hasProfiles = profiles.length > 0;
+  const hasMasterDb = getMasterDbUrl();
+  
+  if (!hasProfiles && !hasMasterDb) {
+    // Tidak ada profil DAN tidak ada Master DB
+    showFirstTimeSetupModal();
+    return true;
+  }
+  return false;
+}
+
+function showFirstTimeSetupModal() {
+  // Cek apakah modal sudah ada, kalau belum buat baru
+  let modal = document.getElementById('firstTimeSetupModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'firstTimeSetupModal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal" style="max-width: 480px;">
+        <div style="text-align:center; margin-bottom:20px;">
+          <div style="width:80px; height:80px; background:linear-gradient(135deg, var(--cyan), var(--blue)); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:36px; margin:0 auto 16px; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);">
+            <i class="fa-solid fa-rocket"></i>
+          </div>
+          <h2 style="color:var(--accent-color); margin-bottom:8px; font-size:22px;">Selamat Datang di Royyek Vault!</h2>
+          <p style="color:var(--slate-500); font-size:13px;">Pilih cara untuk memulai penggunaan aplikasi</p>
+        </div>
+        
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <!-- Opsi 1: Pengguna Baru -->
+          <button onclick="selectSetupMode('new')" style="background:var(--bg-surface); border:2px solid var(--card-border-custom); border-radius:12px; padding:16px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:12px; text-align:left;">
+            <div style="width:48px; height:48px; background:rgba(139, 92, 246, 0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--cyan); font-size:24px; flex-shrink:0;">
+              <i class="fa-solid fa-user-plus"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; color:var(--text-main); margin-bottom:4px; font-size:15px;">Pengguna Baru</div>
+              <div style="font-size:12px; color:var(--slate-500);">Buat profil pertama dan database baru dari awal</div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--slate-500);"></i>
+          </button>
+          
+          <!-- Opsi 2: Sudah Punya Akun (Sync dari Cloud) -->
+          <button onclick="selectSetupMode('existing')" style="background:linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(6, 182, 212, 0.1)); border:2px solid rgba(139, 92, 246, 0.3); border-radius:12px; padding:16px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:12px; text-align:left;">
+            <div style="width:48px; height:48px; background:rgba(6, 182, 212, 0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--blue); font-size:24px; flex-shrink:0;">
+              <i class="fa-solid fa-cloud-arrow-down"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; color:var(--text-main); margin-bottom:4px; font-size:15px;">Sudah Punya Akun</div>
+              <div style="font-size:12px; color:var(--slate-500);">Sinkronkan profil dari perangkat lain via Master DB</div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--slate-500);"></i>
+          </button>
+        </div>
+        
+        <div style="margin-top:20px; padding-top:16px; border-top:1px dashed var(--card-border-custom); text-align:center;">
+          <p style="font-size:11px; color:var(--slate-500);">
+            <i class="fa-solid fa-shield-halved" style="color:var(--cyan);"></i>
+            Data Anda aman dan terenkripsi
+          </p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'grid';
+}
+
+function selectSetupMode(mode) {
+    const modal = document.getElementById('firstTimeSetupModal');
+    if (modal) modal.remove();
+    
+    if (mode === 'new') {
+        // Buka form buat profil baru
+        openAddAccountModal();
+    } else if (mode === 'existing') {
+        // Langsung buka form Master DB
+        openMasterDbSetupModal();
+    }
+}
+
+function openMasterDbSetupModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'masterDbSetupModal';
+    modal.style.display = 'grid';
+    
+    modal.innerHTML = `
+        <div class="modal" style="max-width: 500px;">
+            <h3 style="margin-bottom: 16px; color: var(--accent-color);">
+                <i class="fa-solid fa-cloud"></i> Sinkronkan Profil
+            </h3>
+            
+            <div style="background: rgba(139, 92, 246, 0.08); border: 1px solid var(--card-border-custom); 
+                        border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                <p style="font-size: 13px; color: var(--slate-300); margin: 0;">
+                    <i class="fa-solid fa-info-circle" style="color: var(--cyan); margin-right: 6px;"></i>
+                    Masukkan URL Master Database untuk mengambil semua profil Anda dari cloud.
+                </p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; 
+                              color: var(--slate-300); margin-bottom: 8px;">
+                    <i class="fa-solid fa-link" style="color: var(--cyan); margin-right: 6px;"></i>
+                    URL Master Database
+                </label>
+                <input type="text" id="first-master-db-url" class="form-input" 
+                       placeholder="https://script.google.com/macros/s/.../exec"
+                       style="font-family: var(--font-standar-mono); font-size: 12px;">
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+                <button onclick="saveFirstMasterDb()" class="btn-pro" 
+                        style="flex: 1; justify-content: center;">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> Sinkronkan
+                </button>
+                <button onclick="closeFirstMasterDbSetup(); showFirstTimeSetupModal();" 
+                        style="flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); 
+                               color: var(--slate-300); border-radius: 8px; font-size: 13px; cursor: pointer;">
+                    Kembali
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function closeFirstMasterDbSetup() {
+    const modal = document.getElementById('masterDbSetupModal');
+    if (modal) modal.remove();
+}
+
+async function saveFirstMasterDb() {
+    const input = document.getElementById('first-master-db-url');
+    const url = input ? input.value.trim() : '';
+    
+    if (!url) {
+        showToast('⚠️ URL tidak boleh kosong!', 'fa-circle-exclamation');
+        return;
+    }
+    
+    if (!url.includes('/exec')) {
+        showToast('⚠️ URL harus mengandung /exec', 'fa-circle-exclamation');
+        return;
+    }
+    
+    // Simpan Master DB
+    localStorage.setItem(MASTER_DB_KEY, url);
+    
+    // Tutup modal
+    closeFirstMasterDbSetup();
+    
+    // Load profiles dari cloud
+    showToast('⏳ Mengunduh profil dari cloud...', 'fa-spinner');
+    
+    const success = await loadProfilesFromCloud();
+    
+    if (success && profiles.length > 0) {
+        showToast(`✅ Berhasil! ${profiles.length} profil tersinkron`, 'fa-check-circle');
+        // Auto login ke profil pertama
+        setTimeout(() => {
+            selectProfile(profiles[0].id);
+        }, 1500);
+    } else {
+        showToast('⚠️ Tidak ada profil di Master DB. Buat profil baru?', 'fa-circle-exclamation');
+        setTimeout(() => {
+            openAddAccountModal();
+        }, 1500);
+    }
+}
+
 // === 🆕 AUTO-SYNC PROFIL KE CLOUD ===
 const originalSetItem = Storage.prototype.setItem;
 Storage.prototype.setItem = function(key, value) {
@@ -3132,7 +3306,274 @@ function toggleExportPassword() { const inp = safeGet('export-password'); const 
 function toggleExportHint(format) { const hintJson = safeGet('export-hint-json'); const hintOther = safeGet('export-hint-other'); const passWrapper = safeGet('export-pass-wrapper'); if (format === 'json') { if (hintJson) hintJson.style.display = 'flex'; if (hintOther) hintOther.style.display = 'none'; if (passWrapper) passWrapper.style.display = 'block'; } else { if (hintJson) hintJson.style.display = 'none'; if (hintOther) hintOther.style.display = 'flex'; if (passWrapper) passWrapper.style.display = 'none'; } }
 function downloadFile(content, filename, mimeType) { const blob = new Blob([content], { type: mimeType }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); }
 function escapeCsv(str) { if (str === null || str === undefined) return ''; return String(str).replace(/"/g, '""'); }
-async function doExport() { if (exportSelectedCategories.size === 0) { showToast('⚠️ Pilih minimal 1 kategori!', 'fa-circle-exclamation'); return; } showToast('⏳ Memproses backup...', 'fa-spinner'); const format = safeGet('export-format').value || 'json'; const password = safeGet('export-password').value.trim(); const exportData = { version: '8.4', exportDate: new Date().toISOString(), categories: Array.from(exportSelectedCategories), vault: getFilteredAccounts().filter(a => exportSelectedCategories.has(a.kategori)), notes: getFilteredNotes().filter(n => exportSelectedCategories.has(n.kategori)) }; try { if (format === 'json') { let fileContent = JSON.stringify(exportData, null, 2); if (password.length > 0) { const encoder = new TextEncoder(); const key = encoder.encode(password); const data = encoder.encode(fileContent); const encrypted = new Uint8Array(data.length); for (let i = 0; i < data.length; i++) { encrypted[i] = data[i] ^ key[i % key.length]; } fileContent = 'RV_ENC:' + btoa(String.fromCharCode(...encrypted)); } downloadFile(fileContent, `royyek-vault-backup-${Date.now()}.json`, 'application/json'); } else if (format === 'csv') { let csvContent = "Type,Kategori,Nama/Judul,Username,Email,Password,Keterangan1,Keterangan2,Isi,Tanggal,Favorit\n"; exportData.vault.forEach(a => { csvContent += `"Vault","${escapeCsv(a.kategori)}","${escapeCsv(a.nama_aplikasi)}","${escapeCsv(a.username)}","${escapeCsv(a.email)}","${escapeCsv(a.password)}","${escapeCsv(a.ket)}","${escapeCsv(a.ket_dua)}","","","${a.favorit ? 'true' : 'false'}"\n`; }); exportData.notes.forEach(n => { csvContent += `"Note","${escapeCsv(n.kategori)}","${escapeCsv(n.judul)}","","","","","","${escapeCsv(n.isi)}","${n.tanggal || ''}","${n.favorit ? 'true' : 'false'}"\n`; }); downloadFile(csvContent, `royyek-vault-backup-${Date.now()}.csv`, 'text/csv'); } closeExportModal(); showToast(`✅ Backup ${format.toUpperCase()} berhasil!`, 'fa-check-circle'); } catch (e) { console.error(e); showToast('❌ Gagal memproses backup!', 'fa-circle-xmark'); } }
+async function doExport() {
+  if (exportSelectedCategories.size === 0) {
+    showToast('⚠️ Pilih minimal 1 kategori!', 'fa-circle-exclamation');
+    return;
+  }
+  showToast('⏳ Memproses backup...', 'fa-spinner');
+  const format = safeGet('export-format').value || 'json';
+  const password = safeGet('export-password').value.trim();
+  const exportData = {
+    version: '8.4',
+    exportDate: new Date().toISOString(),
+    categories: Array.from(exportSelectedCategories),
+    vault: getFilteredAccounts().filter(a => exportSelectedCategories.has(a.kategori)),
+    notes: getFilteredNotes().filter(n => exportSelectedCategories.has(n.kategori))
+  };
+
+  try {
+    // ========== 1. FORMAT JSON ==========
+    if (format === 'json') {
+      let fileContent = JSON.stringify(exportData, null, 2);
+      if (password.length > 0) {
+        const encoder = new TextEncoder();
+        const key = encoder.encode(password);
+        const data = encoder.encode(fileContent);
+        const encrypted = new Uint8Array(data.length);
+        for (let i = 0; i < data.length; i++) {
+          encrypted[i] = data[i] ^ key[i % key.length];
+        }
+        fileContent = 'RV_ENC:' + btoa(String.fromCharCode(...encrypted));
+      }
+      downloadFile(fileContent, `royyek-vault-backup-${Date.now()}.json`, 'application/json');
+    }
+    // ========== 2. FORMAT CSV ==========
+    else if (format === 'csv') {
+      let csvContent = "Type,Kategori,Nama/Judul,Username,Email,Password,Keterangan1,Keterangan2,Isi,Tanggal,Favorit\n";
+      exportData.vault.forEach(a => {
+        csvContent += `"Vault","${escapeCsv(a.kategori)}","${escapeCsv(a.nama_aplikasi)}","${escapeCsv(a.username)}","${escapeCsv(a.email)}","${escapeCsv(a.password)}","${escapeCsv(a.ket)}","${escapeCsv(a.ket_dua)}","","","${a.favorit ? 'true' : 'false'}"\n`;
+      });
+      exportData.notes.forEach(n => {
+        csvContent += `"Note","${escapeCsv(n.kategori)}","${escapeCsv(n.judul)}","","","","","","${escapeCsv(n.isi)}","${n.tanggal || ''}","${n.favorit ? 'true' : 'false'}"\n`;
+      });
+      downloadFile(csvContent, `royyek-vault-backup-${Date.now()}.csv`, 'text/csv');
+    }
+    // ========== 3. FORMAT PDF (BARU - DIPERBAIKI) ==========
+    else if (format === 'pdf') {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast('❌ Library PDF belum termuat. Cek koneksi internet!', 'fa-circle-xmark');
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const contentWidth = pageWidth - margin * 2;
+
+      // Helper: sanitasi teks (hapus emoji & karakter aneh yang tidak didukung font standar PDF)
+      const cleanText = (str) => {
+        if (!str) return '-';
+        return String(str)
+          .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')  // emoji
+          .replace(/[\u{2600}-\u{27BF}]/gu, '')     // symbol
+          .replace(/[\u{1F900}-\u{1F9FF}]/gu, '')   // emoticon
+          .replace(/[\u{2700}-\u{27BF}]/gu, '')
+          .replace(/[^\x20-\x7E\u00C0-\u024F]/g, ' ') // hanya ASCII + Latin extended
+          .trim() || '-';
+      };
+
+      // ===== HEADER PREMIUM =====
+      doc.setFillColor(15, 10, 26);
+      doc.rect(0, 0, pageWidth, 32, 'F');
+      doc.setFillColor(212, 175, 55);
+      doc.rect(0, 32, pageWidth, 1.5, 'F');
+
+      doc.setTextColor(244, 208, 63);
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Royyek Vault', margin, 16);
+
+      doc.setTextColor(200, 200, 220);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Laporan Backup Data Premium', margin, 23);
+
+      doc.setTextColor(150, 150, 170);
+      doc.setFontSize(8);
+      doc.text('Cloud Synced v8.6', margin, 29);
+
+      // ===== METADATA BOX =====
+      let y = 42;
+      doc.setFillColor(248, 245, 255);
+      doc.setDrawColor(212, 175, 55);
+      doc.roundedRect(margin, y, contentWidth, 22, 2, 2, 'FD');
+
+      doc.setTextColor(60, 40, 100);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RINGKASAN EKSPOR', margin + 4, y + 6);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(80, 80, 100);
+      doc.text(`Tanggal   : ${new Date().toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}`, margin + 4, y + 12);
+      doc.text(`Total     : ${exportData.vault.length} Akun  |  ${exportData.notes.length} Catatan  |  ${exportData.categories.length} Kategori`, margin + 4, y + 17);
+
+      y += 30;
+
+      // ===== FOOTER FUNCTION =====
+      const addFooter = () => {
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setDrawColor(212, 175, 55);
+          doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+          doc.setFontSize(7.5);
+          doc.setTextColor(130, 130, 150);
+          doc.text(`Royyek Vault - Premium Report`, margin, pageHeight - 8);
+          doc.text(`Halaman ${i} dari ${pageCount}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+          doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+        }
+      };
+
+      // ===== LOOP PER KATEGORI =====
+      const categories = Array.from(exportSelectedCategories).sort();
+      let hasContent = false;
+
+      categories.forEach(cat => {
+        const catAccounts = exportData.vault.filter(a => a.kategori === cat);
+        const catNotes = exportData.notes.filter(n => n.kategori === cat);
+        if (catAccounts.length === 0 && catNotes.length === 0) return;
+        hasContent = true;
+
+        // Cek space halaman
+        if (y > 240) { doc.addPage(); y = 20; }
+
+        // ===== CATEGORY HEADER =====
+        doc.setFillColor(124, 58, 237);
+        doc.roundedRect(margin, y, contentWidth, 9, 1.5, 1.5, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`[ ${cleanText(cat)} ]`, margin + 4, y + 6);
+
+        const totalCount = catAccounts.length + catNotes.length;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${totalCount} item`, pageWidth - margin - 4, y + 6, { align: 'right' });
+        y += 13;
+
+        // ===== TABEL AKUN =====
+        if (catAccounts.length > 0) {
+          if (y > 240) { doc.addPage(); y = 20; }
+          doc.setTextColor(100, 60, 180);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`AKUN / KREDENSIAL (${catAccounts.length})`, margin, y);
+          y += 3;
+
+          const accountRows = catAccounts.map(a => [
+            cleanText(a.nama_aplikasi),
+            cleanText(a.username),
+            cleanText(a.email),
+            cleanText(a.password),
+            cleanText(a.ket),
+            cleanText(a.ket_dua)
+          ]);
+
+          doc.autoTable({
+            startY: y,
+            head: [['Aplikasi', 'Username', 'Email', 'Password', 'Ket. 1', 'Ket. 2']],
+            body: accountRows,
+            margin: { left: margin, right: margin },
+            styles: { fontSize: 7.5, cellPadding: 1.8, lineColor: [230, 220, 250], lineWidth: 0.2 },
+            headStyles: {
+              fillColor: [212, 175, 55],
+              textColor: [15, 10, 26],
+              fontStyle: 'bold',
+              fontSize: 8
+            },
+            alternateRowStyles: { fillColor: [250, 247, 255] },
+            columnStyles: {
+              0: { cellWidth: 32, fontStyle: 'bold' },
+              1: { cellWidth: 28 },
+              2: { cellWidth: 35 },
+              3: { cellWidth: 28 },
+              4: { cellWidth: 25 },
+              5: { cellWidth: 'auto' }
+            }
+          });
+          y = doc.lastAutoTable.finalY + 6;
+        }
+
+        // ===== TABEL CATATAN =====
+        if (catNotes.length > 0) {
+          if (y > 240) { doc.addPage(); y = 20; }
+          doc.setTextColor(6, 120, 170);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`CATATAN (${catNotes.length})`, margin, y);
+          y += 3;
+
+          const noteRows = catNotes.map(n => {
+            const isiClean = cleanText(n.isi);
+            const isiShort = isiClean.length > 120 ? isiClean.substring(0, 117) + '...' : isiClean;
+            return [
+              cleanText(n.judul),
+              isiShort,
+              n.tanggal ? new Date(n.tanggal).toLocaleDateString('id-ID') : '-'
+            ];
+          });
+
+          doc.autoTable({
+            startY: y,
+            head: [['Judul', 'Isi Catatan', 'Tanggal']],
+            body: noteRows,
+            margin: { left: margin, right: margin },
+            styles: { fontSize: 7.5, cellPadding: 1.8, lineColor: [220, 230, 250], lineWidth: 0.2 },
+            headStyles: {
+              fillColor: [99, 102, 241],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              fontSize: 8
+            },
+            alternateRowStyles: { fillColor: [240, 248, 255] },
+            columnStyles: {
+              0: { cellWidth: 40, fontStyle: 'bold' },
+              1: { cellWidth: 'auto' },
+              2: { cellWidth: 22, halign: 'center' }
+            }
+          });
+          y = doc.lastAutoTable.finalY + 6;
+        }
+      });
+
+      if (!hasContent) {
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(10);
+        doc.text('Tidak ada data pada kategori yang dipilih.', pageWidth / 2, y + 10, { align: 'center' });
+      }
+
+      // ===== HALAMAN PENUTUP =====
+      doc.addPage();
+      doc.setFillColor(15, 10, 26);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      doc.setTextColor(212, 175, 55);
+      doc.setFontSize(28);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Royyek Vault', pageWidth / 2, pageHeight / 2 - 15, { align: 'center' });
+      doc.setTextColor(200, 200, 220);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Premium Cloud Security', pageWidth / 2, pageHeight / 2, { align: 'center' });
+      doc.setTextColor(150, 150, 170);
+      doc.setFontSize(9);
+      doc.text(`Dokumen ini digenerate otomatis pada ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, pageHeight / 2 + 15, { align: 'center' });
+      doc.text('Enkripsi End-to-End  |  Multi Profile  |  Cloud Sync', pageWidth / 2, pageHeight / 2 + 22, { align: 'center' });
+
+      addFooter();
+      doc.save(`royyek-vault-report-${Date.now()}.pdf`);
+    }
+
+    closeExportModal();
+    showToast(`✅ Backup ${format.toUpperCase()} berhasil!`, 'fa-check-circle');
+  } catch (e) {
+    console.error('Export error:', e);
+    showToast('❌ Gagal memproses backup: ' + e.message, 'fa-circle-xmark');
+  }
+}
 function closeExportModal() { const modal = safeGet('exportModal'); if (modal) modal.style.display = 'none'; }
 function bukaImportModal() { closeExportModal(); const modal = safeGet('importModal'); if (modal) { modal.style.display = 'grid'; const step1 = safeGet('import-step-1'); const step2 = safeGet('import-step-2'); const fileInput = safeGet('import-file-input'); const passwordSection = safeGet('import-password-section'); const categorySelection = safeGet('import-category-selection'); const preview = safeGet('import-preview'); if (step1) step1.style.display = 'block'; if (step2) step2.style.display = 'none'; if (fileInput) fileInput.value = ''; if (passwordSection) passwordSection.style.display = 'none'; if (categorySelection) categorySelection.style.display = 'none'; if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; } importPendingData = null; importSelectedCategories.clear(); } }
 function handleImportFile(event) { const file = event.target.files[0]; if (!file) return; const fileName = file.name.toLowerCase(); if (fileName.endsWith('.pdf')) { showToast('⚠️ Import PDF tidak didukung untuk data terstruktur. Silakan gunakan format JSON atau CSV.', 'fa-circle-exclamation'); event.target.value = ''; return; } const reader = new FileReader(); reader.onload = function(e) { try { if (fileName.endsWith('.csv')) { processCsvImport(e.target.result, file.name, file.size); } else { let content = e.target.result; let isEncrypted = false; if (content.startsWith('RV_ENC:')) { isEncrypted = true; content = content.substring(7); } importPendingData = { content, isEncrypted, fileName: file.name, fileSize: file.size }; safeSetText(safeGet('import-file-name'), file.name); safeSetText(safeGet('import-file-size'), (file.size / 1024).toFixed(2) + ' KB'); safeGet('import-step-1').style.display = 'none'; safeGet('import-step-2').style.display = 'block'; if (isEncrypted) { safeGet('import-password-section').style.display = 'block'; safeGet('import-category-selection').style.display = 'none'; safeGet('import-preview').style.display = 'none'; } else { safeGet('import-password-section').style.display = 'none'; const data = JSON.parse(e.target.result); importPendingData.data = data; processImportData(data, file.name, file.size); } } } catch(err) { console.error(err); showToast('❌ File tidak valid atau rusak!', 'fa-circle-xmark'); event.target.value = ''; } }; reader.readAsText(file); }
@@ -3252,6 +3693,14 @@ function closeImportModal() { const modal = safeGet('importModal'); if (modal) m
 
 // === window.onload ===
 window.onload = async function() {
+  // 🆕 CEK FIRST-TIME SETUP DULUAN (SEBELUM SEMUA)
+  const isFirstTime = checkFirstTimeSetup();
+  if (isFirstTime) {
+    // User baru, tampilkan modal pilihan
+    // Jangan lanjut init sistem dulu, tunggu user pilih
+    return;
+  }
+  
   // 🔄 AUTO-LOAD PROFIL DARI CLOUD (PENTING!)
   const masterUrl = getMasterDbUrl();
   if (masterUrl) {
@@ -3887,6 +4336,10 @@ addOutsideClose('vaultManagerModal', function() { if (typeof closeVaultManager =
 addOutsideClose('addAccountModal', function() { 
   if (typeof closeAddAccountModal === 'function') closeAddAccountModal(); 
 });
+addOutsideClose('firstTimeSetupModal', function() {
+  const modal = document.getElementById('firstTimeSetupModal');
+  if (modal) modal.style.display = 'none';
+});
 addOutsideClose('masterDbModal', function() {
   if (typeof closeMasterDbModal === 'function') closeMasterDbModal();
 });
@@ -3917,7 +4370,8 @@ const modals = [
 ['contextMenuOverlay', 'closeContextMenu'],
 ['vaultManagerModal', 'closeVaultManager'],
 ['addAccountModal', 'closeAddAccountModal'],
-['masterDbModal', 'closeMasterDbModal']
+['masterDbModal', 'closeMasterDbModal'],
+  ['firstTimeSetupModal', 'closeFirstTimeSetup'],
 ];
 for (const [id, fn] of modals) {
 const el = document.getElementById(id);
