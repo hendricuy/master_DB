@@ -1569,42 +1569,54 @@ window.saveNewProfileFromModal = async function() {
   const name = nameInput ? nameInput.value.trim() : '';
   const url = urlInput ? urlInput.value.trim() : '';
   
-  // Validasi
+  // ===== VALIDASI DASAR =====
   if (!name) { 
     showToast('⚠️ Nama pengguna tidak boleh kosong!', 'fa-circle-exclamation'); 
     if (nameInput) nameInput.focus();
     return; 
   }
   if (!url || !url.includes('/exec')) { 
-    showToast('️ URL AppScript tidak valid (harus mengandung /exec)!', 'fa-circle-exclamation'); 
+    showToast('⚠️ URL AppScript tidak valid (harus mengandung /exec)!', 'fa-circle-exclamation'); 
     if (urlInput) urlInput.focus();
     return; 
   }
   
-  // Cek duplikasi URL
-  const isDuplicate = profiles.some(p => p.apiUrl === url);
-  if (isDuplicate) {
-    showToast('⚠️ URL ini sudah digunakan profil lain!', 'fa-circle-exclamation');
+  // ===== CEK DUPLIKASI (HYBRID MODE) =====
+  const existingByUrl = profiles.find(p => p.apiUrl === url);
+  const existingByName = profiles.find(p => p.name.toLowerCase() === name.toLowerCase());
+  
+  // Kasus 1: Duplikat TOTAL (nama + URL sama persis dengan 1 profil) → HARD REJECT
+  if (existingByUrl && existingByName && existingByUrl.id === existingByName.id) {
+    showToast(`⚠️ Profil "${name}" dengan URL ini sudah ada!`, 'fa-circle-exclamation');
     return;
   }
   
-  // Tambah profil baru
+  // Kasus 2: URL sama, nama beda → CONFIRM
+  if (existingByUrl) {
+    if (!confirm(`⚠️ URL ini sudah dipakai oleh "${existingByUrl.name}".\n\nYakin mau tambah profil baru dengan URL yang sama?`)) {
+      return;
+    }
+  }
+  
+  // Kasus 3: Nama sama, URL beda → CONFIRM
+  if (existingByName) {
+    if (!confirm(`⚠️ Nama "${name}" sudah digunakan.\n\nYakin mau pakai nama yang sama untuk profil berbeda?`)) {
+      return;
+    }
+  }
+  
+  // ===== TAMBAH PROFIL BARU =====
   const newId = 'prof_' + Date.now();
   profiles.push({ id: newId, name: name, apiUrl: url });
   localStorage.setItem('vault_profiles', JSON.stringify(profiles));
   
-  // Tutup modal
   closeAddAccountModal();
-  
-  // Tampilkan notifikasi
   showToast(`✅ Akun "${name}" berhasil ditambahkan!`, 'fa-check-circle');
   
-  // Sync ke cloud jika Master DB sudah diatur
   if (getMasterDbUrl()) {
     await syncProfilesToCloud();
   }
   
-  // Refresh dropdown profil
   renderProfileDropdown();
 };
 // === 🆕 SYNC PROFIL KE CLOUD ===
@@ -2041,17 +2053,52 @@ document.getElementById('new-profile-url').value = '';
 }
 
 async function saveNewProfile() {
-const name = document.getElementById('new-profile-name').value.trim();
-const url = document.getElementById('new-profile-url').value.trim();
-if (!name) { showToast('⚠️ Nama pengguna tidak boleh kosong!', 'fa-circle-exclamation'); return; }
-if (!url || !url.includes('/exec')) { showToast('⚠️ URL AppScript tidak valid!', 'fa-circle-exclamation'); return; }
-const newId = 'prof_' + Date.now();
-profiles.push({ id: newId, name: name, apiUrl: url });
-localStorage.setItem('vault_profiles', JSON.stringify(profiles));
-hideAddProfileForm();
-showProfileLoginScreen();
-showToast('✅ Akun baru ditambahkan!', 'fa-check-circle');
-await syncProfilesToCloud();
+  const name = document.getElementById('new-profile-name').value.trim();
+  const url = document.getElementById('new-profile-url').value.trim();
+  
+  // ===== VALIDASI DASAR =====
+  if (!name) { 
+    showToast('⚠️ Nama pengguna tidak boleh kosong!', 'fa-circle-exclamation'); 
+    return; 
+  }
+  if (!url || !url.includes('/exec')) { 
+    showToast('⚠️ URL AppScript tidak valid!', 'fa-circle-exclamation'); 
+    return; 
+  }
+  
+  // ===== CEK DUPLIKASI (HYBRID MODE) =====
+  const existingByUrl = profiles.find(p => p.apiUrl === url);
+  const existingByName = profiles.find(p => p.name.toLowerCase() === name.toLowerCase());
+  
+  // Kasus 1: Duplikat TOTAL → HARD REJECT
+  if (existingByUrl && existingByName && existingByUrl.id === existingByName.id) {
+    showToast(`⚠️ Profil "${name}" dengan URL ini sudah ada!`, 'fa-circle-exclamation');
+    return;
+  }
+  
+  // Kasus 2: URL sama, nama beda → CONFIRM
+  if (existingByUrl) {
+    if (!confirm(`⚠️ URL ini sudah dipakai oleh "${existingByUrl.name}".\n\nYakin mau tambah profil baru dengan URL yang sama?`)) {
+      return;
+    }
+  }
+  
+  // Kasus 3: Nama sama, URL beda → CONFIRM
+  if (existingByName) {
+    if (!confirm(`⚠️ Nama "${name}" sudah digunakan.\n\nYakin mau pakai nama yang sama untuk profil berbeda?`)) {
+      return;
+    }
+  }
+  
+  // ===== TAMBAH PROFIL BARU =====
+  const newId = 'prof_' + Date.now();
+  profiles.push({ id: newId, name: name, apiUrl: url });
+  localStorage.setItem('vault_profiles', JSON.stringify(profiles));
+  
+  hideAddProfileForm();
+  showProfileLoginScreen();
+  showToast('✅ Akun baru ditambahkan!', 'fa-check-circle');
+  await syncProfilesToCloud();
 }
 
 async function logoutProfile() {
@@ -2134,42 +2181,68 @@ function renderProfileDropdown() {
 
 // Edit Profile
 window.editProfile = function(profileId) {
-    const profile = profiles.find(p => p.id === profileId);
-    if (!profile) return;
+  const profile = profiles.find(p => p.id === profileId);
+  if (!profile) return;
+  
+  const newName = prompt('✏️ Edit Nama Profil:', profile.name);
+  if (!newName || newName.trim() === '') {
+    showToast('⚠️ Nama profil tidak boleh kosong!', 'fa-circle-exclamation');
+    return;
+  }
+  
+  const newUrl = prompt('✏️ Edit URL AppScript:', profile.apiUrl);
+  if (!newUrl || !newUrl.includes('/exec')) {
+    showToast('⚠️ URL AppScript tidak valid!', 'fa-circle-exclamation');
+    return;
+  }
+  
+  const trimmedName = newName.trim();
+  const trimmedUrl = newUrl.trim();
+  
+  // ===== CEK DUPLIKASI (HYBRID) =====
+  const existingByUrl = profiles.find(p => p.apiUrl === trimmedUrl && p.id !== profileId);
+  const existingByName = profiles.find(p => p.name.toLowerCase() === trimmedName.toLowerCase() && p.id !== profileId);
+  
+  // Duplikat TOTAL
+  if (existingByUrl && existingByName && existingByUrl.id === existingByName.id) {
+    showToast(`⚠️ Profil "${trimmedName}" dengan URL ini sudah ada!`, 'fa-circle-exclamation');
+    return;
+  }
+  
+  // URL sama, nama beda
+  if (existingByUrl) {
+    if (!confirm(`⚠️ URL ini sudah dipakai oleh "${existingByUrl.name}".\n\nYakin mau pakai URL yang sama?`)) {
+      return;
+    }
+  }
+  
+  // Nama sama, URL beda
+  if (existingByName) {
+    if (!confirm(`⚠️ Nama "${trimmedName}" sudah digunakan.\n\nYakin mau pakai nama yang sama?`)) {
+      return;
+    }
+  }
+  
+  // ===== UPDATE PROFIL =====
+  const profileIndex = profiles.findIndex(p => p.id === profileId);
+  if (profileIndex !== -1) {
+    profiles[profileIndex].name = trimmedName;
+    profiles[profileIndex].apiUrl = trimmedUrl;
+    localStorage.setItem('vault_profiles', JSON.stringify(profiles));
     
-    const newName = prompt('✏️ Edit Nama Profil:', profile.name);
-    if (!newName || newName.trim() === '') {
-        showToast('⚠️ Nama profil tidak boleh kosong!', 'fa-circle-exclamation');
-        return;
+    if (profileId === activeProfileId) {
+      localStorage.setItem('vault_profile_name', trimmedName);
+      localStorage.setItem('vault_api_url', trimmedUrl);
+      loadProfileName();
     }
     
-    const newUrl = prompt('✏️ Edit URL AppScript:', profile.apiUrl);
-    if (!newUrl || !newUrl.includes('/exec')) {
-        showToast('⚠️ URL AppScript tidak valid!', 'fa-circle-exclamation');
-        return;
-    }
+    renderProfileDropdown();
+    showToast('✅ Profil berhasil diubah!', 'fa-check-circle');
     
-    const profileIndex = profiles.findIndex(p => p.id === profileId);
-    if (profileIndex !== -1) {
-        profiles[profileIndex].name = newName.trim();
-        profiles[profileIndex].apiUrl = newUrl.trim();
-        localStorage.setItem('vault_profiles', JSON.stringify(profiles));
-        
-        // Update jika profil yang sedang aktif
-        if (profileId === activeProfileId) {
-            localStorage.setItem('vault_profile_name', newName.trim());
-            localStorage.setItem('vault_api_url', newUrl.trim());
-            loadProfileName();
-        }
-        
-        renderProfileDropdown();
-        showToast('✅ Profil berhasil diubah!', 'fa-check-circle');
-        
-        // Sync ke cloud jika Master DB diatur
-        if (getMasterDbUrl()) {
-            syncProfilesToCloud();
-        }
+    if (getMasterDbUrl()) {
+      syncProfilesToCloud();
     }
+  }
 };
 
 // Delete Profile
