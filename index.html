@@ -3692,55 +3692,87 @@ async function executeImport() {
 function closeImportModal() { const modal = safeGet('importModal'); if (modal) modal.style.display = 'none'; const step1 = safeGet('import-step-1'); const step2 = safeGet('import-step-2'); const fileInput = safeGet('import-file-input'); const passwordSection = safeGet('import-password-section'); const categorySelection = safeGet('import-category-selection'); const preview = safeGet('import-preview'); if (step1) step1.style.display = 'block'; if (step2) step2.style.display = 'none'; if (fileInput) fileInput.value = ''; if (passwordSection) passwordSection.style.display = 'none'; if (categorySelection) categorySelection.style.display = 'none'; if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; } importPendingData = null; importSelectedCategories.clear(); }
 
 // === window.onload ===
+// === window.onload (NON-BLOCKING VERSION) ===
 window.onload = async function() {
-  // 🆕 CEK FIRST-TIME SETUP DULUAN (SEBELUM SEMUA)
+  // ① CEK FIRST-TIME SETUP
   const isFirstTime = checkFirstTimeSetup();
-  if (isFirstTime) {
-    // User baru, tampilkan modal pilihan
-    // Jangan lanjut init sistem dulu, tunggu user pilih
-    return;
-  }
+  if (isFirstTime) return;
   
-  // 🔄 AUTO-LOAD PROFIL DARI CLOUD (PENTING!)
-  const masterUrl = getMasterDbUrl();
-  if (masterUrl) {
-    try {
-      await loadProfilesFromCloud();
-    } catch (e) {
-      console.warn('⚠️ Gagal load profil dari cloud:', e);
-    }
-  }
-  
-  // 1. Inisialisasi Sistem Multi-Profil
+  // ② INIT UI DULUAN (INSTAN!) - TAMPILKAN DATA LOKAL
   const profileReady = initProfileSystem();
   if (!profileReady) return;
   
-  // ... kode sisanya tetap sama
-  // 2. Tema & Pengaturan Dasar
+  // ③ Setup Tema
   const savedTheme = localStorage.getItem('vault_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', savedTheme);
   updateThemeToggleIcon(savedTheme);
-  const pinEnabled = localStorage.getItem('vault_pin_enabled') !== 'false', pinToggle = safeGet('pin-toggle');
+  
+  // ④ Setup PIN
+  const pinEnabled = localStorage.getItem('vault_pin_enabled') !== 'false';
+  const pinToggle = safeGet('pin-toggle');
   if (pinToggle) pinToggle.checked = pinEnabled;
-  if (!pinEnabled) { const ls = safeGet('lockScreen'); if (ls) ls.style.display = 'none'; sessionStorage.setItem('vault_unlocked', 'true'); } else if (sessionStorage.getItem('vault_unlocked') === 'true') { const ls = safeGet('lockScreen'); if (ls) ls.style.display = 'none'; }
-
-  // 3. Muat Data Cadangan dari Memori HP
-  if (typeof loadDataDariMemoriLokal === "function") { loadDataDariMemoriLokal(); }
-
-  // 4. Inisialisasi Multiple Vaults
+  if (!pinEnabled) {
+    const ls = safeGet('lockScreen');
+    if (ls) ls.style.display = 'none';
+    sessionStorage.setItem('vault_unlocked', 'true');
+  } else if (sessionStorage.getItem('vault_unlocked') === 'true') {
+    const ls = safeGet('lockScreen');
+    if (ls) ls.style.display = 'none';
+  }
+  
+  // ⑤ LOAD DATA LOKAL (INSTAN!)
+  if (typeof loadDataDariMemoriLokal === "function") {
+    loadDataDariMemoriLokal();
+  }
+  
+  // ⑥ INIT VAULTS
   saveVaults();
   accounts.forEach(a => { if (!a.vault_id) a.vault_id = 'default'; });
   notes.forEach(n => { if (!n.vault_id) n.vault_id = 'default'; });
-
-  // 5. Update DB info di modal
+  
+  // ⑦ Update DB info di modal
   const savedUrl = localStorage.getItem('vault_api_url');
-  if (savedUrl) { const currentDbUrl = safeGet('current-db-url'); if (currentDbUrl) currentDbUrl.textContent = savedUrl; }
-
-  // 6. Ambil Data Terbaru dari Cloud
-  if (apiUrl && isOnline) { fetchData(); } else { renderStats(); renderCurrentView(); }
-
+  if (savedUrl) {
+    const currentDbUrl = safeGet('current-db-url');
+    if (currentDbUrl) currentDbUrl.textContent = savedUrl;
+  }
+  
+  // ⑧ RENDER UI PERTAMA KALI (pakai data lokal - INSTAN!)
+  renderStats();
+  renderCurrentView();
   updateSyncStatus();
-  if (isOnline && syncQueue.length > 0) { setTimeout(processSyncQueue, 1000); startAutoRetry(); }
+  
+  // ⑨ 🔥 LOAD CLOUD DI BACKGROUND (TIDAK BLOCKING!)
+  const masterUrl = getMasterDbUrl();
+  if (masterUrl) {
+    loadProfilesFromCloud()
+      .then(() => {
+        console.log('✅ Profil cloud dimuat di background');
+        renderProfileDropdown();
+      })
+      .catch(e => {
+        console.warn('⚠️ Load profil cloud gagal (pakai data lokal):', e);
+      });
+  }
+  
+  // ⑩ 🔥 FETCH DATA TERBARU DARI CLOUD (BACKGROUND)
+  if (apiUrl && isOnline) {
+    fetchData()
+      .then(() => {
+        console.log('✅ Data cloud terbaru dimuat');
+      })
+      .catch(e => {
+        console.warn('⚠️ Fetch data gagal:', e);
+      });
+  }
+  
+  // ⑪ PROCESS SYNC QUEUE (BACKGROUND)
+  if (isOnline && syncQueue.length > 0) {
+    setTimeout(processSyncQueue, 1000);
+    startAutoRetry();
+  }
+  
+  // ⑫ INIT LAINNYA
   initLongPressEvents();
   renderQuickActions();
 };
